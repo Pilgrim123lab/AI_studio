@@ -1,6 +1,8 @@
 {
-  "name": "DLCF OAU Post-UTME CBT Portal",
-  "description": "Interactive CBT Exam simulator for OAU Post-UTME aspirants featuring real past questions, subject combination selector, countdown timer, auto-grading, student performance dashboard, dark mode, and AI tutor by Deeper Life Campus Fellowship.",
+  "name": "NexusAI: Data Analyst to Global AI Engineer Mastery Platform",
+  "description": "Comprehensive career transformation platform designed to transition Data Analysts into World-Class AI Engineers and LLM Systems Architects through real-world enterprise projects, interactive coding labs, systemic roadmaps, and AI architecture mentorship.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

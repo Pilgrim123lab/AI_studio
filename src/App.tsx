@@ -1,265 +1,257 @@
 import React, { useState, useEffect } from 'react';
-import { Header } from './components/Header';
-import { ExamSetupModal } from './components/ExamSetupModal';
-import { CBTExamEngine } from './components/CBTExamEngine';
-import { ResultReview } from './components/ResultReview';
-import { StudentDashboard } from './components/StudentDashboard';
-import { RevisionBank } from './components/RevisionBank';
-import { AggregateCalculatorModal } from './components/AggregateCalculatorModal';
-import { AITutorModal } from './components/AITutorModal';
-import { StudentProfileModal } from './components/StudentProfileModal';
 import { 
-  StudentProfile, 
-  TestResult, 
-  SubjectId, 
-  Question 
-} from './types';
+  Header, 
+  NavigationTab 
+} from './components/Header';
+import { RoadmapView } from './components/RoadmapView';
+import { InteractivePracticum } from './components/InteractivePracticum';
+import { TutorialsHub } from './components/TutorialsHub';
+import { ProjectsStudio } from './components/ProjectsStudio';
+import { CodingLab } from './components/CodingLab';
+import { SystemDesignLab } from './components/SystemDesignLab';
+import { SkillMatrixView } from './components/SkillMatrixView';
+import { AIMentorChat } from './components/AIMentorChat';
+import { PortfolioModal } from './components/PortfolioModal';
+import { UserProgress, CareerRole } from './types';
 import { 
-  getStoredProfile, 
-  saveProfile, 
-  getStoredTestHistory, 
-  saveTestResult, 
+  getStoredUserProgress, 
+  saveUserProgress, 
+  markTopicComplete, 
+  markTutorialComplete,
+  markPracticumComplete,
+  setActiveRole,
+  markMilestoneComplete, 
+  markChallengeComplete,
   getStoredTheme, 
-  setStoredTheme 
+  setStoredTheme,
+  getRankTitle
 } from './utils/storage';
-import { generateMockExam, getQuestionsForSubject, OAU_QUESTION_BANK } from './data/oauQuestions';
+import { Sparkles, Award, Flame, CheckCircle2, X } from 'lucide-react';
 
 export function App() {
-  // Navigation view state
-  const [currentView, setCurrentView] = useState<'exam_setup' | 'active_exam' | 'result_review' | 'dashboard' | 'revision_bank'>('dashboard');
-  
-  // Theme state ('light' | 'dark')
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => getStoredTheme() === 'dark');
+  const [activeTab, setActiveTab] = useState<NavigationTab>('roadmap');
+  const [progress, setProgress] = useState<UserProgress>(getStoredUserProgress);
+  const [isPortfolioOpen, setIsPortfolioOpen] = useState<boolean>(false);
+  const [levelUpToast, setLevelUpToast] = useState<{ show: boolean; level: number; title: string } | null>(null);
 
-  // Student Profile state
-  const [profile, setProfile] = useState<StudentProfile>(getStoredProfile);
-
-  // Test History state
-  const [testHistory, setTestHistory] = useState<TestResult[]>(getStoredTestHistory);
-
-  // Active Exam state
-  const [activeExamConfig, setActiveExamConfig] = useState<{
-    questions: Question[];
-    selectedSubjects: SubjectId[];
-    durationMinutes: number;
-    examTitle: string;
-    examMode: 'standard_oau_mock' | 'subject_drill' | 'speed_sprint' | 'untimed_practice';
-  } | null>(null);
-
-  // Current / Active Result being reviewed
-  const [activeResult, setActiveResult] = useState<TestResult | null>(() => {
-    const history = getStoredTestHistory();
-    return history.length > 0 ? history[0] : null;
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = getStoredTheme();
+    if (saved === 'dark') {
+      document.documentElement.classList.add('dark');
+      return 'dark';
+    } else {
+      document.documentElement.classList.remove('dark');
+      return 'light';
+    }
   });
 
-  // Modal open states
-  const [isAggregateModalOpen, setIsAggregateModalOpen] = useState(false);
-  const [isAiTutorModalOpen, setIsAiTutorModalOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-
-  // Synchronize theme with DOM on mount and changes
   useEffect(() => {
-    setStoredTheme(isDarkMode ? 'dark' : 'light');
-  }, [isDarkMode]);
+    setStoredTheme(theme);
+  }, [theme]);
 
   const handleToggleTheme = () => {
-    setIsDarkMode((prev) => !prev);
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  const handleSaveProfile = (updated: StudentProfile) => {
-    setProfile(updated);
-    saveProfile(updated);
+  const handleRefreshProgress = () => {
+    setProgress(getStoredUserProgress());
   };
 
-  // Launch a new exam session
-  const handleStartExam = (config: {
-    selectedSubjects: SubjectId[];
-    examMode: 'standard_oau_mock' | 'subject_drill' | 'speed_sprint' | 'untimed_practice';
-    questionsPerSubject: number;
-    durationMinutes: number;
-    examTitle: string;
-  }) => {
-    let generatedQuestions: Question[] = [];
+  const handleTopicCompleted = (topicId: string, xpReward: number) => {
+    const { newProgress, leveledUp } = markTopicComplete(topicId, xpReward);
+    setProgress(newProgress);
 
-    if (config.examMode === 'subject_drill' && config.selectedSubjects.length === 1) {
-      generatedQuestions = getQuestionsForSubject(config.selectedSubjects[0], config.questionsPerSubject);
-    } else {
-      generatedQuestions = generateMockExam(config.selectedSubjects, config.questionsPerSubject);
+    if (leveledUp) {
+      setLevelUpToast({
+        show: true,
+        level: newProgress.currentLevel,
+        title: getRankTitle(newProgress.currentLevel),
+      });
     }
+  };
 
-    // Fallback if empty
-    if (generatedQuestions.length === 0) {
-      generatedQuestions = OAU_QUESTION_BANK.slice(0, 20);
+  const handleTutorialCompleted = (tutorialId: string, xpReward: number) => {
+    const { newProgress, leveledUp } = markTutorialComplete(tutorialId, xpReward);
+    setProgress(newProgress);
+
+    if (leveledUp) {
+      setLevelUpToast({
+        show: true,
+        level: newProgress.currentLevel,
+        title: getRankTitle(newProgress.currentLevel),
+      });
     }
-
-    setActiveExamConfig({
-      questions: generatedQuestions,
-      selectedSubjects: config.selectedSubjects,
-      durationMinutes: config.durationMinutes,
-      examTitle: config.examTitle,
-      examMode: config.examMode,
-    });
-
-    setCurrentView('active_exam');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Launch custom drill directly from Revision Bank
-  const handleStartCustomDrill = (questions: Question[]) => {
-    const subjects = Array.from(new Set(questions.map((q) => q.subjectId)));
-    setActiveExamConfig({
-      questions,
-      selectedSubjects: subjects,
-      durationMinutes: Math.max(10, Math.round(questions.length * 1.2)),
-      examTitle: `Targeted Revision Vault Drill (${questions.length} Questions)`,
-      examMode: 'standard_oau_mock',
-    });
-    setCurrentView('active_exam');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleRoleChange = (role: CareerRole) => {
+    const updated = setActiveRole(role);
+    setProgress(updated);
   };
 
-  // Handle Exam Finished & Graded
-  const handleSubmitExam = (result: TestResult) => {
-    const updatedHistory = saveTestResult(result);
-    setTestHistory(updatedHistory);
-    setActiveResult(result);
-    setActiveExamConfig(null);
-    setCurrentView('result_review');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handlePracticumCompleted = (practicumId: string, xpReward: number) => {
+    const { newProgress, leveledUp } = markPracticumComplete(practicumId, xpReward);
+    setProgress(newProgress);
+
+    if (leveledUp) {
+      setLevelUpToast({
+        show: true,
+        level: newProgress.currentLevel,
+        title: getRankTitle(newProgress.currentLevel),
+      });
+    }
   };
 
-  // Cancel/Exit active exam
-  const handleExitExam = () => {
-    setActiveExamConfig(null);
-    setCurrentView('dashboard');
+  const handleMilestoneCompleted = (projectId: string, milestoneId: string, xpReward: number) => {
+    const { newProgress, leveledUp } = markMilestoneComplete(projectId, milestoneId, xpReward);
+    setProgress(newProgress);
+
+    if (leveledUp) {
+      setLevelUpToast({
+        show: true,
+        level: newProgress.currentLevel,
+        title: getRankTitle(newProgress.currentLevel),
+      });
+    }
+  };
+
+  const handleChallengeCompleted = (challengeId: string, xpReward: number) => {
+    const { newProgress, leveledUp } = markChallengeComplete(challengeId, xpReward);
+    setProgress(newProgress);
+
+    if (leveledUp) {
+      setLevelUpToast({
+        show: true,
+        level: newProgress.currentLevel,
+        title: getRankTitle(newProgress.currentLevel),
+      });
+    }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 font-sans flex flex-col justify-between selection:bg-purple-500 selection:text-white">
-      
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 font-sans flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
       {/* 1. Global Navigation Header */}
       <Header
-        currentView={currentView}
-        onNavigate={(view) => setCurrentView(view)}
-        onOpenAggregateCalc={() => setIsAggregateModalOpen(true)}
-        onOpenAiTutor={() => setIsAiTutorModalOpen(true)}
-        onOpenProfile={() => setIsProfileModalOpen(true)}
-        profile={profile}
-        isDarkMode={isDarkMode}
-        onToggleTheme={handleToggleTheme}
-        isExamInProgress={currentView === 'active_exam'}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        progress={progress}
+        theme={theme}
+        toggleTheme={handleToggleTheme}
+        onOpenPortfolio={() => setIsPortfolioOpen(true)}
+        onRoleChange={handleRoleChange}
       />
 
-      {/* 2. Main Screen Routing */}
+      {/* 2. Main Content Views */}
       <main className="flex-1">
-        
-        {/* VIEW 1: Exam Configuration & Subject Selection */}
-        {currentView === 'exam_setup' && (
-          <ExamSetupModal
-            profile={profile}
-            onStartExam={handleStartExam}
+        {activeTab === 'roadmap' && (
+          <RoadmapView
+            progress={progress}
+            onCompleteTopic={handleTopicCompleted}
+            onSelectProject={() => setActiveTab('projects')}
+            onNavigateToTutorialsHub={() => setActiveTab('tutorials')}
+            onCompleteTutorial={handleTutorialCompleted}
           />
         )}
 
-        {/* VIEW 2: Active CBT Exam Engine */}
-        {currentView === 'active_exam' && activeExamConfig && (
-          <CBTExamEngine
-            questions={activeExamConfig.questions}
-            selectedSubjects={activeExamConfig.selectedSubjects}
-            durationMinutes={activeExamConfig.durationMinutes}
-            examTitle={activeExamConfig.examTitle}
-            examMode={activeExamConfig.examMode}
-            profile={profile}
-            onSubmitExam={handleSubmitExam}
-            onExitExam={handleExitExam}
+        {activeTab === 'practicum' && (
+          <InteractivePracticum
+            progress={progress}
+            activeRole={progress.activeRole || 'ai_engineer'}
+            onRoleChange={handleRoleChange}
+            onCompletePracticum={handlePracticumCompleted}
           />
         )}
 
-        {/* VIEW 3: Instant Marking Result & Question Review */}
-        {currentView === 'result_review' && activeResult && (
-          <ResultReview
-            result={activeResult}
-            profile={profile}
-            onRetakeExam={() => setCurrentView('exam_setup')}
-            onGoToDashboard={() => setCurrentView('dashboard')}
+        {activeTab === 'tutorials' && (
+          <TutorialsHub
+            progress={progress}
+            onCompleteTutorial={handleTutorialCompleted}
+            onSelectProject={() => setActiveTab('projects')}
+            onRefreshProgress={handleRefreshProgress}
           />
         )}
 
-        {/* VIEW 4: Student Analytics Dashboard */}
-        {currentView === 'dashboard' && (
-          <StudentDashboard
-            profile={profile}
-            testHistory={testHistory}
-            onStartNewMock={() => setCurrentView('exam_setup')}
-            onViewRevisionBank={() => setCurrentView('revision_bank')}
-            onOpenAggregateCalc={() => setIsAggregateModalOpen(true)}
-            onOpenAiTutor={() => setIsAiTutorModalOpen(true)}
-            onSelectPastResult={(res) => {
-              setActiveResult(res);
-              setCurrentView('result_review');
-            }}
-            onOpenProfile={() => setIsProfileModalOpen(true)}
+        {activeTab === 'projects' && (
+          <ProjectsStudio
+            progress={progress}
+            onCompleteMilestone={handleMilestoneCompleted}
           />
         )}
 
-        {/* VIEW 5: Saved Questions & Revision Vault */}
-        {currentView === 'revision_bank' && (
-          <RevisionBank
-            onStartCustomDrill={handleStartCustomDrill}
-            onOpenAiTutor={() => setIsAiTutorModalOpen(true)}
+        {activeTab === 'coding_lab' && (
+          <CodingLab
+            progress={progress}
+            onCompleteChallenge={handleChallengeCompleted}
           />
         )}
 
+        {activeTab === 'system_design' && (
+          <SystemDesignLab />
+        )}
+
+        {activeTab === 'skill_matrix' && (
+          <SkillMatrixView
+            progress={progress}
+          />
+        )}
+
+        {activeTab === 'ai_mentor' && (
+          <AIMentorChat
+            progress={progress}
+          />
+        )}
       </main>
 
-      {/* 3. Global Footer with DLCF & OAU Info */}
-      <footer className="w-full border-t border-slate-200 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md py-6 mt-12 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
+      {/* 3. Global Footer */}
+      <footer className="w-full border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md py-6 mt-12 text-xs text-slate-500 dark:text-slate-400">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-2">
-            <span className="font-extrabold text-blue-900 dark:text-blue-400">
-              Deeper Life Campus Fellowship (DLCF)
-            </span>
-            <span>•</span>
-            <span className="italic font-serif text-purple-700 dark:text-purple-300">
-              "Assembly of Saintly Intellectuals"
-            </span>
+            <span className="font-bold text-slate-900 dark:text-white">NexusAI Engineering Platform</span>
+            <span>&bull;</span>
+            <span>Transitioning Data Analysts to Global AI Engineering Experts</span>
           </div>
 
           <div className="flex items-center space-x-4">
-            <span>Obafemi Awolowo University (OAU), Ile-Ife</span>
-            <span>•</span>
-            <span>Post-UTME Tutorial Directorate</span>
+            <button
+              onClick={() => setIsPortfolioOpen(true)}
+              className="hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors"
+            >
+              Export Capability Dossier (.md)
+            </button>
+            <span>&bull;</span>
+            <span>Gemini 2.5 Architecture Evaluation</span>
           </div>
         </div>
       </footer>
 
-      {/* 4. Global Modals */}
-      
-      {/* OAU Aggregate Calculator Modal */}
-      <AggregateCalculatorModal
-        isOpen={isAggregateModalOpen}
-        onClose={() => setIsAggregateModalOpen(false)}
-        initialJambScore={profile.jambScore}
-        initialPostUtmeScore={profile.targetPostUtmeScore}
-        targetCourse={profile.targetCourse}
-      />
+      {/* 4. Level Up Celebration Toast */}
+      {levelUpToast?.show && (
+        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-gradient-to-r from-indigo-900 to-slate-900 text-white border border-indigo-500/50 shadow-2xl flex items-center space-x-4 animate-bounce">
+          <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md">
+            L{levelUpToast.level}
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Level Up Unlocked!</span>
+            </div>
+            <h4 className="text-sm font-extrabold text-white">{levelUpToast.title}</h4>
+            <p className="text-[11px] text-slate-300">You unlocked new advanced architecture modules.</p>
+          </div>
+          <button
+            onClick={() => setLevelUpToast(null)}
+            className="text-slate-400 hover:text-white p-1"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
-      {/* Saintly AI Academic Coach Modal */}
-      <AITutorModal
-        isOpen={isAiTutorModalOpen}
-        onClose={() => setIsAiTutorModalOpen(false)}
-        profile={profile}
-        lastTestResult={activeResult}
+      {/* 5. Portfolio Export Modal */}
+      <PortfolioModal
+        isOpen={isPortfolioOpen}
+        onClose={() => setIsPortfolioOpen(false)}
+        progress={progress}
       />
-
-      {/* Student Profile Settings Modal */}
-      <StudentProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        profile={profile}
-        onSaveProfile={handleSaveProfile}
-      />
-
     </div>
   );
 }
